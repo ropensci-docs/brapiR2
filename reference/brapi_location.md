@@ -1,0 +1,53 @@
+# Get a Single Location by ID
+
+Get a Single Location by ID
+
+## Usage
+
+``` r
+brapi_location(con, locationDbId)
+```
+
+## Arguments
+
+- con:
+
+  A
+  [`brapi_connection()`](https://docs.ropensci.org/brapiR2/reference/brapi_connection.md)
+  object.
+
+- locationDbId:
+
+  Character. The unique location identifier.
+
+## Value
+
+A single-row tibble with location metadata, including coordinates where
+the server provides them.
+
+## BrAPI endpoint
+
+`GET /locations/{locationDbId}` - see the [v2.1
+specification](https://github.com/plantbreeding/BrAPI/blob/V2.1/Specification/BrAPI-Core/Locations/Locations_LocationDbId_GET_PUT.yaml).
+
+## Examples
+
+``` r
+# \donttest{
+con <- brapi_connection("https://test-server.brapi.org")
+if (brapi_ping(con)) {
+  brapi_location(con, "location_01")
+}
+#> ✔ Server <https://test-server.brapi.org> is reachable.
+#> # A tibble: 1 × 21
+#>   additionalInfo   externalReferences abbreviation coordinateDescription        
+#>   <list>           <list>             <chr>        <chr>                        
+#> 1 <named list [1]> <list [1]>         L1           Northwest corner of greenhou…
+#> # ℹ 17 more variables: coordinateUncertainty <chr>, coordinates <list>,
+#> #   countryCode <chr>, countryName <chr>, documentationURL <chr>,
+#> #   environmentType <chr>, exposure <chr>, instituteAddress <chr>,
+#> #   instituteName <chr>, locationName <chr>, locationType <chr>,
+#> #   siteStatus <chr>, slope <chr>, topography <chr>, parentLocationDbId <chr>,
+#> #   parentLocationName <chr>, locationDbId <chr>
+# }
+```

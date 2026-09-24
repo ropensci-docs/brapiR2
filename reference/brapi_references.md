@@ -1,0 +1,57 @@
+# List References (Chromosomes/Contigs)
+
+List References (Chromosomes/Contigs)
+
+## Usage
+
+``` r
+brapi_references(con, ...)
+```
+
+## Arguments
+
+- con:
+
+  A
+  [`brapi_connection()`](https://docs.ropensci.org/brapiR2/reference/brapi_connection.md)
+  object.
+
+- ...:
+
+  Additional query parameters.
+
+## Value
+
+A tibble with one row per reference sequence.
+
+## BrAPI endpoint
+
+`GET /references` - see the [v2.1
+specification](https://github.com/plantbreeding/BrAPI/blob/V2.1/Specification/BrAPI-Genotyping/References/References_GET.yaml).
+
+Query parameters the specification defines, which may be passed through
+`...`:
+
+`referenceDbId`, `referenceSetDbId`, `accession`, `md5checksum`,
+`isDerived`, `minLength`, `maxLength`.
+
+## Examples
+
+``` r
+# \donttest{
+con <- brapi_connection("https://test-server.brapi.org")
+if (brapi_ping(con)) {
+  brapi_references(con)
+}
+#> ✔ Server <https://test-server.brapi.org> is reachable.
+#> # A tibble: 2 × 15
+#>   additionalInfo externalReferences commonCropName isDerived length md5checksum 
+#>   <list>         <lgl>              <chr>          <lgl>      <int> <chr>       
+#> 1 <named list>   NA                 Tomatillo      FALSE       6010 0ba836092b9…
+#> 2 <named list>   NA                 Tomatillo      FALSE       6020 0ba836092b9…
+#> # ℹ 9 more variables: referenceDbId <chr>, referenceName <chr>,
+#> #   referenceSetDbId <chr>, referenceSetName <lgl>, sourceAccessions <list>,
+#> #   sourceDivergence <dbl>, sourceGermplasm <list>, sourceURI <chr>,
+#> #   species <list>
+# }
+```

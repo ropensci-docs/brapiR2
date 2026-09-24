@@ -1,0 +1,13 @@
+{
+  "commit": {
+    "commit": "8bb2d32144e6a821f704b96198411b1ea58413f6",
+    "author": "Joash Joshua Ayo <joashjoshua789@gmail.com>",
+    "time": "2026-09-24T12:16:24Z",
+    "files": 1,
+    "merge": false,
+    "message": "Ignore CRAN-SUBMISSION when building the package\n"
+  },
+  "repo": "https://github.com/ropensci/brapiR2",
+  "pkg": "brapiR2",
+  "time": "2026-09-24T15:23:33Z"
+}
