@@ -1,0 +1,666 @@
+# Changelog
+
+## brapiR2 0.2.1
+
+### Bug fixes
+
+- [`brapi_ping()`](https://docs.ropensci.org/brapiR2/reference/brapi_ping.md)
+  now returns `TRUE` only when `/serverinfo` answers with a successful
+  JSON response, and attaches the HTTP status as the `"status"`
+  attribute. Live-server tests skip with that status when the test
+  server is down, instead of failing
+  ([\#42](https://github.com/ropensci/brapiR2/issues/42)).
+
+- [`brapi_allele_matrix()`](https://docs.ropensci.org/brapiR2/reference/brapi_allele_matrix.md)
+  and
+  [`brapi_get_dosage_matrix()`](https://docs.ropensci.org/brapiR2/reference/brapi_get_dosage_matrix.md)
+  now page `/allelematrix` in both dimensions with the v2.1 parameters
+  `dimensionVariantPage` and `dimensionCallSetPage`. They used to send a
+  `callSetPage` parameter the specification does not define, so a
+  spec-compliant server repeated the first page of call sets and later
+  pages of variants were never fetched
+  ([\#7](https://github.com/ropensci/brapiR2/issues/7)).
+
+- [`brapi_post_search()`](https://docs.ropensci.org/brapiR2/reference/brapi_post_search.md)
+  and the `brapi_search_*()` functions now return every page of a search
+  result, whether the server answers immediately or after an
+  asynchronous (HTTP 202) search. They used to return only the first
+  `page_size` records. `brapi_get_marker_map(variantSetDbId = )` no
+  longer reports variants as having no position when their positions
+  were on a later page
+  ([\#8](https://github.com/ropensci/brapiR2/issues/8)).
+
+- [`brapi_allele_matrix()`](https://docs.ropensci.org/brapiR2/reference/brapi_allele_matrix.md),
+  [`brapi_get_dosage_matrix()`](https://docs.ropensci.org/brapiR2/reference/brapi_get_dosage_matrix.md),
+  [`brapi_server_info()`](https://docs.ropensci.org/brapiR2/reference/brapi_server_info.md)
+  and
+  [`brapi_endpoints()`](https://docs.ropensci.org/brapiR2/reference/brapi_endpoints.md)
+  now report HTTP errors with the server’s own message, like every other
+  function. A 401 used to come back as an empty tibble, and an HTML
+  error page as an httr2 content-type error
+  ([\#9](https://github.com/ropensci/brapiR2/issues/9)).
+
+- [`brapi_get_dosage_matrix()`](https://docs.ropensci.org/brapiR2/reference/brapi_get_dosage_matrix.md)
+  now asks the server for expanded homozygotes, its `sep` and its
+  `unknown_string`, and decodes calls more strictly. A call with any
+  missing allele (`"./1"`) is `NA` rather than a dosage, a collapsed
+  homozygote (`"1"`) is expanded instead of becoming `NA`, and
+  nucleotide calls (`"A/T"`) are an error rather than being counted as
+  alternate alleles. The matrix is built directly from the allele
+  matrix, without a long-format pivot
+  ([\#10](https://github.com/ropensci/brapiR2/issues/10)).
+
+- Cached responses keep full numeric precision. They were written with
+  jsonlite’s default of four decimal places, so a cached call could
+  return different values from a fresh one; the parser’s fallback path
+  rounded the same way. Cache entries are now written to a temporary
+  file and renamed into place, so a parallel worker never reads a
+  half-written entry
+  ([\#11](https://github.com/ropensci/brapiR2/issues/11)).
+
+- The cache key now includes a hash of the connection’s token, so a
+  response fetched with one token is never served to a connection with a
+  different token or none.
+  [`brapi_cache_clear()`](https://docs.ropensci.org/brapiR2/reference/brapi_cache_clear.md)
+  removes only brapiR2’s own cache files rather than everything in the
+  directory, and its examples no longer point the cache at
+  [`tempdir()`](https://rdrr.io/r/base/tempfile.html)
+  ([\#12](https://github.com/ropensci/brapiR2/issues/12)).
+
+- [`brapi_cache_enable()`](https://docs.ropensci.org/brapiR2/reference/brapi_cache_enable.md)
+  now defaults to `tools::R_user_dir("brapiR2", "cache")`, R’s standard
+  per-user cache location, instead of
+  [`rappdirs::user_cache_dir()`](https://rappdirs.r-lib.org/reference/user_cache_dir.html),
+  and `rappdirs` is no longer a suggested package. The test for the
+  default directory no longer writes to the user’s home directory
+  ([\#13](https://github.com/ropensci/brapiR2/issues/13)).
+
+- [`brapi_study_data()`](https://docs.ropensci.org/brapiR2/reference/brapi_study_data.md)
+  no longer drops repeated measurements that happen to share a value:
+  duplicates are now identified by `observationDbId`. It also no longer
+  fetches every observation on the server when the filtered request
+  comes back empty, which is the normal answer for a study with no data.
+  That fallback, for servers that ignore the `studyDbId` filter such as
+  the public BrAPI test server, is now opt-in with `fallback = TRUE`,
+  and the empty-study message says so. Code that relied on the fallback
+  needs to set it
+  ([\#14](https://github.com/ropensci/brapiR2/issues/14)).
+
+- [`brapi_login_oauth2()`](https://docs.ropensci.org/brapiR2/reference/brapi_login_oauth2.md)
+  now sends its client-credentials token request form-encoded, as RFC
+  6749 requires, rather than as JSON, which most OAuth servers reject.
+  The unused `authorize_url` argument is optional and deprecated;
+  supplying it gives a warning. The docs and README no longer describe
+  an authorization-code flow or imply EBS has been tested, and the
+  example no longer posts to the test server’s legacy `/token` endpoint,
+  which is not an OAuth server
+  ([\#15](https://github.com/ropensci/brapiR2/issues/15)).
+
+- Paginated requests now work out the page count from `totalCount` and
+  `pageSize` when a server omits `totalPages`, instead of stopping after
+  the first page. When a server ignores the `page` parameter and serves
+  the same page again,
+  [`brapi_get()`](https://docs.ropensci.org/brapiR2/reference/brapi_get.md)
+  stops with a warning instead of repeating those records for every
+  remaining page, and doesn’t cache the result. `max_pages` is validated
+  ([\#16](https://github.com/ropensci/brapiR2/issues/16)).
+
+- A field whose JSON type differs between records, such as a plot number
+  that is `1` in one and `"2A"` in another, no longer changes the shape
+  of the result. The parser used to fall back to
+  `jsonlite::fromJSON(flatten = TRUE)`, which turned nested objects into
+  dotted columns (`geo` became `geo.type`); now such a column becomes
+  character, or a list-column if any record holds a list
+  ([\#17](https://github.com/ropensci/brapiR2/issues/17)).
+
+- Arguments are checked before any request is made. By-ID functions such
+  as
+  [`brapi_study()`](https://docs.ropensci.org/brapiR2/reference/brapi_study.md)
+  need a single non-empty ID (a whole number is accepted) and
+  percent-encode it, so an ID with a space or `?` no longer breaks the
+  URL; `NULL` used to request the API root and a vector a nonsense path.
+  An ID containing `/` is refused, since it can’t be sent in a path.
+  `NULL` filters passed through `...` are dropped, a vector filter gives
+  an error naming the parameter instead of an internal one,
+  [`brapi_connection()`](https://docs.ropensci.org/brapiR2/reference/brapi_connection.md)
+  validates `token`, `version`, `page_size` and `timeout`, and
+  [`brapi_study_data()`](https://docs.ropensci.org/brapiR2/reference/brapi_study_data.md)
+  says when records have no value field. HTTP errors now name the server
+  as well as the endpoint
+  ([\#18](https://github.com/ropensci/brapiR2/issues/18)).
+
+- Logical query parameters, such as `includeParents = TRUE`, are now
+  sent as `true`/`false` rather than `TRUE`/`FALSE`. In search request
+  bodies only the plural array filters (`germplasmDbIds`, …) are sent as
+  JSON arrays; string fields the specification defines as single values,
+  such as `sepUnphased`, `unknownString` and
+  `observationTimeStampRangeStart`, are no longer wrapped in an array
+  ([\#19](https://github.com/ropensci/brapiR2/issues/19)).
+
+- [`brapi_ping()`](https://docs.ropensci.org/brapiR2/reference/brapi_ping.md)
+  uses a timeout of at most 10 seconds and doesn’t retry, so an
+  unreachable server is reported in under a second instead of after
+  retries (about 5 seconds per call with httr2 1.0.0, and every example
+  pings first). A server that answers `/serverinfo` with 401 or 403 is
+  now reported as reachable but needing authentication, rather than as
+  down ([\#20](https://github.com/ropensci/brapiR2/issues/20)).
+
+- [`brapi_fetch_parallel()`](https://docs.ropensci.org/brapiR2/reference/brapi_fetch_parallel.md)
+  now records which IDs failed: the result carries a `"failed"`
+  attribute listing each ID and its error, one warning names them, and
+  the summary says how many of the IDs succeeded instead of claiming
+  every source was fetched. Results whose column types differ between
+  IDs are combined (as character, or a list-column) instead of aborting
+  the whole batch
+  ([\#21](https://github.com/ropensci/brapiR2/issues/21)).
+
+- [`brapi_allele_matrix()`](https://docs.ropensci.org/brapiR2/reference/brapi_allele_matrix.md)
+  and
+  [`brapi_get_dosage_matrix()`](https://docs.ropensci.org/brapiR2/reference/brapi_get_dosage_matrix.md)
+  no longer shift genotype calls when the server sends a JSON `null` for
+  a missing call: the null becomes `NA` in its own cell instead of being
+  dropped, which moved every later call in that row to the wrong call
+  set ([\#67](https://github.com/ropensci/brapiR2/issues/67)).
+
+### Documentation
+
+- The README installation section now leads with CRAN, keeping
+  R-universe and GitHub as alternatives, and adds CRAN and R-universe
+  badges.
+  [`?brapi_get`](https://docs.ropensci.org/brapiR2/reference/brapi_get.md)
+  now counts 37 BrAPI v2.1 entities, and
+  [`?brapi_pedigree`](https://docs.ropensci.org/brapiR2/reference/brapi_pedigree.md)
+  and DESIGN.md no longer say
+  [`brapi_germplasm_pedigree()`](https://docs.ropensci.org/brapiR2/reference/brapi_germplasm_pedigree.md)
+  calls the `/germplasm/{germplasmDbId}/pedigree` sub-resource
+  ([\#6](https://github.com/ropensci/brapiR2/issues/6)).
+
+- The README, vignettes and DESIGN.md no longer overstate what brapiR2
+  returns or how it was tested: they name the functions that don’t
+  return a tibble, describe the server survey as one request per
+  endpoint, use the test server’s real IDs (`study1`, `variantset1`) in
+  the quick start, and no longer credit untested servers with login
+  styles ([\#22](https://github.com/ropensci/brapiR2/issues/22)).
+
+- [`brapi_germplasm_pedigree()`](https://docs.ropensci.org/brapiR2/reference/brapi_germplasm_pedigree.md),
+  [`brapi_germplasm_progeny()`](https://docs.ropensci.org/brapiR2/reference/brapi_germplasm_progeny.md),
+  [`brapi_server_info()`](https://docs.ropensci.org/brapiR2/reference/brapi_server_info.md),
+  [`brapi_endpoints()`](https://docs.ropensci.org/brapiR2/reference/brapi_endpoints.md)
+  and
+  [`brapi_ping()`](https://docs.ropensci.org/brapiR2/reference/brapi_ping.md)
+  now take `...`, so the query parameters their help pages list can be
+  passed. The help pages for
+  [`brapi_study_data()`](https://docs.ropensci.org/brapiR2/reference/brapi_study_data.md),
+  [`brapi_get_dosage_matrix()`](https://docs.ropensci.org/brapiR2/reference/brapi_get_dosage_matrix.md),
+  [`brapi_get_marker_map()`](https://docs.ropensci.org/brapiR2/reference/brapi_get_marker_map.md),
+  [`brapi_login()`](https://docs.ropensci.org/brapiR2/reference/brapi_login.md)
+  and
+  [`brapi_login_oauth2()`](https://docs.ropensci.org/brapiR2/reference/brapi_login_oauth2.md)
+  now name the endpoints they call, and
+  [`?brapi_login`](https://docs.ropensci.org/brapiR2/reference/brapi_login.md)
+  says `/token` is not part of BrAPI v2.1
+  ([\#23](https://github.com/ropensci/brapiR2/issues/23)).
+
+- Release housekeeping for 0.2.1: the NEWS headings use `##` throughout,
+  cran-comments.md describes an update rather than a new release,
+  CONTRIBUTING links the rOpenSci Code of Conduct and lists only the
+  test dependencies the tests use, and `dev/SERVERS.md` notes that
+  `max_pages` now fetches a single page
+  ([\#24](https://github.com/ropensci/brapiR2/issues/24)).
+
+- CONTRIBUTING now describes how the live-server tests really skip: on
+  CRAN, and whenever the test server doesn’t answer `/serverinfo` with
+  HTTP 200 and JSON, rather than via `skip_if_offline()`
+  ([\#68](https://github.com/ropensci/brapiR2/issues/68)).
+
+### Internal
+
+- New tests cover the error and paging paths that had none: a Breedbase
+  401 on a list endpoint, plain-text and HTML error bodies, a login that
+  fails with the server’s reason, and an asynchronous search that is
+  still running on more than one poll. With the tests added alongside
+  the fixes for [\#7](https://github.com/ropensci/brapiR2/issues/7),
+  [\#8](https://github.com/ropensci/brapiR2/issues/8),
+  [\#11](https://github.com/ropensci/brapiR2/issues/11),
+  [\#12](https://github.com/ropensci/brapiR2/issues/12),
+  [\#16](https://github.com/ropensci/brapiR2/issues/16) and
+  [\#42](https://github.com/ropensci/brapiR2/issues/42), every path
+  listed in the issue is now tested
+  ([\#26](https://github.com/ropensci/brapiR2/issues/26)).
+
+- Removed unused imports
+  ([`rlang::abort()`](https://rlang.r-lib.org/reference/abort.html),
+  `inform()`, `warn()`,
+  [`dplyr::select()`](https://dplyr.tidyverse.org/reference/select.html),
+  [`filter()`](https://rdrr.io/r/stats/filter.html),
+  [`purrr::map_dfr()`](https://purrr.tidyverse.org/reference/map_dfr.html),
+  `map_chr()`, `map_lgl()`,
+  [`tidyr::unnest()`](https://tidyr.tidyverse.org/reference/unnest.html)
+  and the `cli_progress_*()` functions) and the unused httptest2 from
+  Suggests, fixed the remaining indentation and long-line lints, and
+  added missing words to `inst/WORDLIST`
+  ([\#25](https://github.com/ropensci/brapiR2/issues/25)).
+
+- The `.Renviron` example in the main vignette uses a `~~~` fence
+  instead of a bare ```` ``` ```` one, which goodpractice miscounted as
+  an unmatched R chunk end, failing pkgcheck with “Chunk start/end
+  indices failed sanity checks in vignette”
+  ([\#42](https://github.com/ropensci/brapiR2/issues/42)).
+
+- CI now checks the minimum supported R version (4.1), reports test
+  coverage to Codecov, and runs R CMD check weekly so the live tests
+  notice changes on the test server
+  ([\#27](https://github.com/ropensci/brapiR2/issues/27)).
+
+- The by-ID URL-encoding test no longer expects `&` to be
+  percent-encoded in a URL path. It checks that the ID’s path segment
+  has no raw space, `?` or `/` and decodes back to the ID, so it passes
+  whichever way curl treats `&`
+  ([\#72](https://github.com/ropensci/brapiR2/issues/72)).
+
+## brapiR2 0.2.0
+
+CRAN release: 2026-10-05
+
+### Breaking changes
+
+- [`brapi_get_marker_map()`](https://docs.ropensci.org/brapiR2/reference/brapi_get_marker_map.md)
+  no longer reads position data from
+  [`brapi_variants()`](https://docs.ropensci.org/brapiR2/reference/brapi_variants.md)
+  (`referenceName`/`start`, which many servers - including the public
+  test server - leave `NA`, since the BrAPI spec makes those fields
+  optional on `Variant`). It now queries the Genome Maps entity’s
+  `/markerpositions` endpoint instead, which places a marker on a named
+  map (genetic or physical) rather than a variant on a reference
+  assembly. **Signature change**:
+  `brapi_get_marker_map(con, variantSetDbId = NULL, mapDbId = NULL)`,
+  requiring exactly one of the two identifiers. The returned tibble’s
+  columns have changed to `variantDbId`, `variantName`, `mapDbId`,
+  `mapName`, `type`, `unit`, `linkageGroupName`, `position` -
+  `referenceName`/`start` are gone. Existing positional calls
+  (`brapi_get_marker_map(con, variantSetDbId)`) still work, but code
+  reading `referenceName` or `start` from the result will break.
+- [`brapi_germplasm_pedigree()`](https://docs.ropensci.org/brapiR2/reference/brapi_germplasm_pedigree.md)
+  and
+  [`brapi_germplasm_progeny()`](https://docs.ropensci.org/brapiR2/reference/brapi_germplasm_progeny.md)
+  now query `/pedigree?germplasmDbId=` instead of the
+  `/germplasm/{germplasmDbId}/pedigree` and
+  `/germplasm/{germplasmDbId}/progeny` sub-resources, which BrAPI
+  deprecated in v2.1. **The returned columns have changed**: 15 rather
+  than 8, `pedigree` is now `pedigreeString`, and `parents`, `siblings`
+  and `progeny` are list-columns of tidy tibbles rather than raw nested
+  lists. The added fields are `progeny`, `germplasmPUI`,
+  `defaultDisplayName`, `breedingMethodName`, `breedingMethodDbId`,
+  `additionalInfo` and `externalReferences`
+  ([@dwaring87](https://github.com/dwaring87),
+  ropensci/software-review#792).
+
+### Bug fixes
+
+- [`brapi_study_data()`](https://docs.ropensci.org/brapiR2/reference/brapi_study_data.md)
+  no longer silently returns the wrong study’s observations on servers
+  that don’t implement the `studyDbId` filter on `/observations`
+  server-side (which triggers a client-side fallback that fetches all
+  observations and filters locally). The filter used
+  `dplyr::filter(.data$studyDbId == studyDbId)`, which - because the
+  function’s own argument is also named `studyDbId` - resolved the
+  right-hand side to the data column itself, making the comparison
+  always `TRUE` and returning every study’s observations rather than
+  just the requested one. Fixed to `.data$studyDbId == .env$studyDbId`,
+  which correctly disambiguates the data column from the function
+  argument.
+- [`brapi_study_data()`](https://docs.ropensci.org/brapiR2/reference/brapi_study_data.md)
+  no longer errors on studies where a trait is measured on only some
+  observation units.
+  [`pivot_wider()`](https://tidyr.tidyverse.org/reference/pivot_wider.html)
+  fills the absent combinations with zero-length elements, and the
+  simplification step’s [`unlist()`](https://rdrr.io/r/base/unlist.html)
+  silently dropped them, returning a column shorter than the table and
+  failing inside
+  [`dplyr::across()`](https://dplyr.tidyverse.org/reference/across.html).
+  Unmeasured cells are now `NA`, and simplified columns are character
+  throughout, which is how BrAPI returns observation values
+  ([@dwaring87](https://github.com/dwaring87),
+  ropensci/software-review#792).
+- Records that differ only in JSON object key order are no longer
+  treated as distinct. Key order is not significant in JSON, and at
+  least one server varies it between records in the same response;
+  nested objects are now normalised as they are parsed. On the study
+  used to reproduce this, 75 of 4,613 observations were affected, and
+  [`brapi_study_data()`](https://docs.ropensci.org/brapiR2/reference/brapi_study_data.md)
+  additionally drops exact duplicate records before pivoting, reporting
+  how many it removed ([@dwaring87](https://github.com/dwaring87),
+  ropensci/software-review#792).
+- [`brapi_login()`](https://docs.ropensci.org/brapiR2/reference/brapi_login.md)
+  now builds its request the same way every other function does. It
+  previously hardcoded `/brapi/`, so authentication was impossible on
+  servers using a different path, and it sent neither the user agent nor
+  the `Accept` header.
+- `con$timeout` is now applied to requests. The argument has been
+  accepted and documented since 0.1.0 but never took effect, leaving
+  every request on curl’s own default.
+- Observation values are trimmed of surrounding whitespace before being
+  returned by
+  [`brapi_study_data()`](https://docs.ropensci.org/brapiR2/reference/brapi_study_data.md),
+  so values such as `"80 "` do not become `NA` on conversion to numeric.
+  Reported by [@dwaring87](https://github.com/dwaring87) from a
+  development server; not reproducible across 21 studies on T3/Oat
+  Sandbox, T3/Wheat Sandbox and Cassavabase, so the trim is defensive
+  (ropensci/software-review#792).
+- [`brapi_germplasm_pedigree()`](https://docs.ropensci.org/brapiR2/reference/brapi_germplasm_pedigree.md)
+  and
+  [`brapi_germplasm_progeny()`](https://docs.ropensci.org/brapiR2/reference/brapi_germplasm_progeny.md)
+  filter the response on `germplasmDbId` client-side. The public test
+  server ignores that parameter on `/pedigree`, so a request for one
+  germplasm returned another alongside it
+  ([@dwaring87](https://github.com/dwaring87),
+  ropensci/software-review#792).
+- A single-object response whose `result` carries a field named `data`
+  is no longer mistaken for a collection. The parser treated any
+  `result$data` as the record envelope, so `/lists/{listDbId}` returned
+  only its members and discarded every other field. `data` is now
+  treated as the envelope only when it is absent of scalars — that is,
+  empty or holding objects.
+- A collection whose records are bare strings is no longer mistaken for
+  a single object. `/commoncropnames` returns its crop names that way,
+  and the whole response came back as one row with a list-column.
+
+### Minor improvements
+
+- Failed requests now report what the server said, not just the HTTP
+  status. A 401 from a Breedbase server reads “You must login and have
+  permission to access this BrAPI call” rather than a bare
+  `HTTP 401 Unauthorized`, and a failed login reports the server’s
+  reason — “Incorrect Password”, or “JSON array body required” — instead
+  of “no access token returned”. Servers report errors in several
+  different ways, and all of the forms seen across the test server,
+  Breedbase, T3 and GRIN-Global are handled; an HTML error page is not
+  shown, since it is never useful to a user
+  ([@dwaring87](https://github.com/dwaring87),
+  ropensci/software-review#792).
+- [`brapi_study_data()`](https://docs.ropensci.org/brapiR2/reference/brapi_study_data.md)
+  checks that the observations it received are really from the study
+  asked for. A server may accept the `studyDbId` filter and ignore it —
+  the public test server does exactly this on `/pedigree` — in which
+  case every study’s observations would have been pivoted together.
+  Extra studies are now filtered out, and the function says how many it
+  found ([@dwaring87](https://github.com/dwaring87),
+  ropensci/software-review#792).
+
+### New features
+
+- New Genome Maps entity support (`R/genome_maps.R`):
+  [`brapi_maps()`](https://docs.ropensci.org/brapiR2/reference/brapi_maps.md),
+  [`brapi_map()`](https://docs.ropensci.org/brapiR2/reference/brapi_map.md),
+  [`brapi_map_linkage_groups()`](https://docs.ropensci.org/brapiR2/reference/brapi_map_linkage_groups.md),
+  [`brapi_marker_positions()`](https://docs.ropensci.org/brapiR2/reference/brapi_marker_positions.md),
+  [`brapi_search_marker_positions()`](https://docs.ropensci.org/brapiR2/reference/brapi_search_marker_positions.md).
+- New Pedigree entity support (`R/germplasm.R`):
+  [`brapi_pedigree()`](https://docs.ropensci.org/brapiR2/reference/brapi_pedigree.md)
+  and
+  [`brapi_search_pedigree()`](https://docs.ropensci.org/brapiR2/reference/brapi_search_pedigree.md)
+  retrieve pedigree records across many germplasm in one call, via
+  `/pedigree` and `/search/pedigree`.
+  [`brapi_germplasm_pedigree()`](https://docs.ropensci.org/brapiR2/reference/brapi_germplasm_pedigree.md)
+  and
+  [`brapi_germplasm_progeny()`](https://docs.ropensci.org/brapiR2/reference/brapi_germplasm_progeny.md)
+  now delegate to
+  [`brapi_pedigree()`](https://docs.ropensci.org/brapiR2/reference/brapi_pedigree.md)
+  rather than calling the sub-resources BrAPI deprecated in v2.1. Each
+  row is one pedigree node; `parents`, `siblings` and `progeny`, when
+  requested, are list-columns of tidy per-node tibbles rather than raw
+  nested lists, so a node with several relatives is never silently
+  collapsed to one row.
+- New Ontologies entity support (`R/phenotyping.R`):
+  [`brapi_ontologies()`](https://docs.ropensci.org/brapiR2/reference/brapi_ontologies.md)
+  and
+  [`brapi_ontology()`](https://docs.ropensci.org/brapiR2/reference/brapi_ontology.md),
+  cross-referenced from
+  [`brapi_traits()`](https://docs.ropensci.org/brapiR2/reference/brapi_traits.md),
+  [`brapi_scales()`](https://docs.ropensci.org/brapiR2/reference/brapi_scales.md),
+  [`brapi_methods()`](https://docs.ropensci.org/brapiR2/reference/brapi_methods.md),
+  and
+  [`brapi_observation_variables()`](https://docs.ropensci.org/brapiR2/reference/brapi_observation_variables.md).
+- brapiR2 now wraps 32 of the 37 BrAPI v2.1 entities across all four
+  modules (49 of 138 retrieval endpoints); see
+  [`?brapi_coverage`](https://docs.ropensci.org/brapiR2/reference/brapi_coverage.md)
+  for the full coverage breakdown and which entities remain uncovered.
+- [`brapi_connection()`](https://docs.ropensci.org/brapiR2/reference/brapi_connection.md)
+  gains a `path` argument for servers that do not serve BrAPI under
+  `/brapi/`. GRIN-Global instances use `gringlobal/brapi` and were
+  previously unreachable; Germinate and GIGWA deployments commonly sit
+  under their own prefixes too. Defaults to `"brapi"`, so existing code
+  is unaffected. [`print()`](https://rdrr.io/r/base/print.html) shows
+  the path only when it differs from the default, and the cache key now
+  includes it, so two servers sharing a hostname no longer collide.
+- Requests now send a user agent identifying brapiR2, its version, and
+  the httr2 and R versions in use, so server operators can see what is
+  calling them. Requests made on continuous integration are marked as
+  such.
+  [`brapi_connection()`](https://docs.ropensci.org/brapiR2/reference/brapi_connection.md)
+  gains a `user_agent` argument to override it
+  ([@dwaring87](https://github.com/dwaring87),
+  ropensci/software-review#792).
+- New
+  [`brapi_location()`](https://docs.ropensci.org/brapiR2/reference/brapi_location.md)
+  retrieves a single location by ID, so a user who knows a study’s
+  `locationDbId` can fetch its coordinates without listing every
+  location and filtering. Verified against the public test server,
+  Cassavabase, T3/Oat Sandbox and USDA-GRIN
+  ([@dwaring87](https://github.com/dwaring87),
+  ropensci/software-review#792).
+- New
+  [`brapi_list()`](https://docs.ropensci.org/brapiR2/reference/brapi_list.md)
+  retrieves a single list by ID together with its contents.
+  [`brapi_lists()`](https://docs.ropensci.org/brapiR2/reference/brapi_lists.md)
+  returns only metadata, so there was previously no way to reach a
+  list’s members at all. The members come back as a character vector in
+  the `data` list-column, ready to pass to another function
+  ([@dwaring87](https://github.com/dwaring87),
+  ropensci/software-review#792).
+- [`brapi_get()`](https://docs.ropensci.org/brapiR2/reference/brapi_get.md)
+  and
+  [`brapi_post_search()`](https://docs.ropensci.org/brapiR2/reference/brapi_post_search.md)
+  are now exported, so an endpoint brapiR2 does not wrap, a server
+  extension, or a query parameter no named function exposes can be
+  reached without dropping to raw HTTP. Pagination, caching,
+  authentication and error reporting work as they do for the named
+  functions. Recommended by both reviewers and by the rOpenSci packaging
+  guidelines ([@dwaring87](https://github.com/dwaring87),
+  [@jmh579](https://github.com/jmh579), ropensci/software-review#792).
+- [`brapi_get()`](https://docs.ropensci.org/brapiR2/reference/brapi_get.md)
+  gains a `max_pages` argument. An unfiltered call against a production
+  server walks every page: Cassavabase holds 8,539 studies and took 18
+  minutes to return them, and a germplasm listing on T3/Wheat ran for
+  over an hour before being interrupted. There was no way to ask for
+  just the first page. The default fetches everything as before, and a
+  truncated result is never cached.
+
+### Deprecated
+
+- [`brapi_fetch_parallel()`](https://docs.ropensci.org/brapiR2/reference/brapi_fetch_parallel.md)
+  no longer sets or restores a `future` plan itself. Per the future
+  package’s best-practices vignette, the parallel backend is now the
+  caller’s choice: call
+  [`future::plan()`](https://future.futureverse.org/reference/plan.html)
+  before calling
+  [`brapi_fetch_parallel()`](https://docs.ropensci.org/brapiR2/reference/brapi_fetch_parallel.md)
+  to fetch in parallel. The `.workers` argument is deprecated -
+  supplying it now emits a warning and has no effect.
+
+### Documentation
+
+- Added `LICENSE.md` with the full MIT licence text, which was missing
+  from the repository, so GitHub had no licence to detect and anyone
+  opening `LICENSE` found no grant of rights. The copyright holder is
+  now named explicitly rather than “brapiR2 authors”
+  ([@dwaring87](https://github.com/dwaring87),
+  ropensci/software-review#792).
+- @dwaring87 and [@jmh579](https://github.com/jmh579) are recorded in
+  `DESCRIPTION` with the `rev` role for their rOpenSci reviews
+  (ropensci/software-review#792).
+- Corrected a misspelling in the QBMS comparison table in the
+  getting-started vignette ([@jmh579](https://github.com/jmh579),
+  ropensci/software-review#792).
+- The getting-started vignette’s “Caching and Parallel Fetching” section
+  now explains what each feature does and when to reach for it, rather
+  than describing the `future` package at length. The design rationale
+  for why
+  [`brapi_fetch_parallel()`](https://docs.ropensci.org/brapiR2/reference/brapi_fetch_parallel.md)
+  does not set a plan has moved to `DESIGN.md`
+  ([@jmh579](https://github.com/jmh579), ropensci/software-review#792).
+- The “Connecting to a Server” section now links to Authentication and
+  to Handling Credentials Safely, which most users need before anything
+  else on the page ([@jmh579](https://github.com/jmh579),
+  ropensci/software-review#792).
+- The recommendation on when to choose QBMS and when to choose brapiR2
+  now sits with the comparison it belongs to, rather than after the
+  references ([@jmh579](https://github.com/jmh579),
+  ropensci/software-review#792).
+- The vignette’s parallel-fetching chunks are guarded on `furrr` and
+  `future` being installed, so the vignette builds where suggested
+  packages are absent.
+- `DESCRIPTION` now declares `Language: en-GB`, and the package’s prose
+  has been made consistent with it. Six American spellings were
+  corrected, and `inst/WORDLIST` has been extended with the domain
+  vocabulary and package names the spellchecker cannot know
+  ([@jmh579](https://github.com/jmh579), ropensci/software-review#792).
+- The README installs with
+  [`pak::pak()`](https://pak.r-lib.org/reference/pak.html) rather than
+  [`remotes::install_github()`](https://remotes.r-lib.org/reference/install_github.html),
+  which now warns ([@jmh579](https://github.com/jmh579),
+  ropensci/software-review#792), and notes that `remotes` and `devtools`
+  need `build_vignettes = TRUE` for the vignette to be installed at all
+  ([@dwaring87](https://github.com/dwaring87),
+  ropensci/software-review#792).
+- The README leads with what brapiR2 does and which BrAPI modules it
+  covers. The QBMS comparison table and the notes on other BrAPI clients
+  have moved into Related Packages, and Authentication now comes before
+  the extended examples ([@jmh579](https://github.com/jmh579),
+  ropensci/software-review#792).
+- The genomic selection article no longer fits the same trait with BGLR
+  and sommer as well as rrBLUP. The comparison of when to reach for each
+  package stays; the code that fitted them is shown rather than run,
+  since neither result was used and both added a heavy dependency to the
+  build ([@jmh579](https://github.com/jmh579),
+  ropensci/software-review#792).
+- Every wrapper’s help page now has a “BrAPI endpoint” section naming
+  the endpoint it calls, linking to that endpoint’s definition in the
+  v2.1 specification, and listing the query parameters the specification
+  defines for it.
+  [`brapi_studies()`](https://docs.ropensci.org/brapiR2/reference/brapi_studies.md)
+  documented only `trialDbId` while the specification defines nine; the
+  same gap existed across the package
+  ([@dwaring87](https://github.com/dwaring87),
+  [@jmh579](https://github.com/jmh579), ropensci/software-review#792).
+- The coverage figures are now derived from the specification rather
+  than stated from memory. `dev/brapi-spec.R` reads the pinned `V2.1`
+  tag of the BrAPI specification repository and writes the endpoint
+  inventory that the documentation is generated from. Correcting against
+  it: the specification defines 37 top-level entities rather than 36,
+  brapiR2 wraps 49 retrieval endpoints rather than 56, and Planned
+  Crosses was missing from the list of uncovered entities.
+- New
+  [`?brapi_coverage`](https://docs.ropensci.org/brapiR2/reference/brapi_coverage.md)
+  lists every BrAPI endpoint brapiR2 wraps, grouped by module, with the
+  function that wraps each one, and names the entities that have no
+  wrapper. Asked for by [@jmh579](https://github.com/jmh579) and
+  [@dwaring87](https://github.com/dwaring87)
+  (ropensci/software-review#792).
+- `DESCRIPTION` no longer names specific BrAPI implementations. It
+  claimed compatibility with Breedbase, BMS, EBS, GIGWA and Germinate,
+  of which only Breedbase had been tested; it now claims the
+  specification instead. The README records which servers brapiR2 has
+  actually been exercised against — eight, across three implementations
+  — and which it has not ([@jmh579](https://github.com/jmh579),
+  ropensci/software-review#792).
+- `DESIGN.md` no longer lists four packages of mine as brapiR2’s
+  downstream pipeline. Two are unreleased and two are at early versions,
+  so the pipeline was described as though it were established.
+- The vignette’s credentials section now says that the token is held in
+  the connection object, so it is written to disk by
+  [`saveRDS()`](https://rdrr.io/r/base/readRDS.html) and printed by
+  [`str()`](https://rdrr.io/r/utils/str.html), while
+  [`print()`](https://rdrr.io/r/base/print.html) shows only whether the
+  connection is authenticated.
+- Examples now check that the test server is reachable before running,
+  so they report the server being down rather than failing. Every
+  example makes live requests, and CRAN runs `\donttest{}` examples on
+  some check flavours.
+
+### Testing
+
+- Substantially expanded the mocked and live-server test suites
+  alongside the features above: argument-capturing tests for every new
+  thin wrapper, dedicated tests for the pedigree relative-list parsing
+  (nodes with parents, with progeny, and with neither), and guarded
+  integration tests against the public BrAPI test server for every new
+  function.
+- Added tests for the work done in response to review: URL construction
+  and cache keys under a non-default `path`, the user agent as sent and
+  as overridden, login reaching a non-standard path, JSON key-order
+  normalisation, unmeasured traits filling with `NA` rather than
+  shortening the column, whitespace trimming, the client-side
+  `studyDbId` and `germplasmDbId` filters, the three response shapes the
+  parser must tell apart, and the error-message extraction for each form
+  a server uses.
+
+## brapiR2 0.1.0
+
+### New features
+
+- Initial release covering the BrAPI v2.1 specification’s Core,
+  Germplasm, Phenotyping, and Genotyping modules.
+- **Core module**:
+  [`brapi_programs()`](https://docs.ropensci.org/brapiR2/reference/brapi_programs.md),
+  [`brapi_trials()`](https://docs.ropensci.org/brapiR2/reference/brapi_trials.md),
+  [`brapi_studies()`](https://docs.ropensci.org/brapiR2/reference/brapi_studies.md),
+  [`brapi_locations()`](https://docs.ropensci.org/brapiR2/reference/brapi_locations.md),
+  [`brapi_seasons()`](https://docs.ropensci.org/brapiR2/reference/brapi_seasons.md),
+  [`brapi_lists()`](https://docs.ropensci.org/brapiR2/reference/brapi_lists.md),
+  [`brapi_people()`](https://docs.ropensci.org/brapiR2/reference/brapi_people.md),
+  [`brapi_server_info()`](https://docs.ropensci.org/brapiR2/reference/brapi_server_info.md).
+- **Germplasm module**:
+  [`brapi_germplasm()`](https://docs.ropensci.org/brapiR2/reference/brapi_germplasm.md),
+  [`brapi_germplasm_pedigree()`](https://docs.ropensci.org/brapiR2/reference/brapi_germplasm_pedigree.md),
+  [`brapi_germplasm_progeny()`](https://docs.ropensci.org/brapiR2/reference/brapi_germplasm_progeny.md),
+  [`brapi_crosses()`](https://docs.ropensci.org/brapiR2/reference/brapi_crosses.md),
+  [`brapi_crossing_projects()`](https://docs.ropensci.org/brapiR2/reference/brapi_crossing_projects.md),
+  [`brapi_seed_lots()`](https://docs.ropensci.org/brapiR2/reference/brapi_seed_lots.md),
+  [`brapi_search_germplasm()`](https://docs.ropensci.org/brapiR2/reference/brapi_search_germplasm.md).
+- **Phenotyping module**:
+  [`brapi_observation_units()`](https://docs.ropensci.org/brapiR2/reference/brapi_observation_units.md),
+  [`brapi_observations()`](https://docs.ropensci.org/brapiR2/reference/brapi_observations.md),
+  [`brapi_observation_variables()`](https://docs.ropensci.org/brapiR2/reference/brapi_observation_variables.md),
+  [`brapi_traits()`](https://docs.ropensci.org/brapiR2/reference/brapi_traits.md),
+  [`brapi_scales()`](https://docs.ropensci.org/brapiR2/reference/brapi_scales.md),
+  [`brapi_methods()`](https://docs.ropensci.org/brapiR2/reference/brapi_methods.md),
+  [`brapi_images()`](https://docs.ropensci.org/brapiR2/reference/brapi_images.md),
+  [`brapi_events()`](https://docs.ropensci.org/brapiR2/reference/brapi_events.md),
+  [`brapi_search_observations()`](https://docs.ropensci.org/brapiR2/reference/brapi_search_observations.md),
+  [`brapi_search_variables()`](https://docs.ropensci.org/brapiR2/reference/brapi_search_variables.md).
+- **Genotyping module**:
+  [`brapi_samples()`](https://docs.ropensci.org/brapiR2/reference/brapi_samples.md),
+  [`brapi_variants()`](https://docs.ropensci.org/brapiR2/reference/brapi_variants.md),
+  [`brapi_variant_sets()`](https://docs.ropensci.org/brapiR2/reference/brapi_variant_sets.md),
+  [`brapi_calls()`](https://docs.ropensci.org/brapiR2/reference/brapi_calls.md),
+  [`brapi_call_sets()`](https://docs.ropensci.org/brapiR2/reference/brapi_call_sets.md),
+  [`brapi_references()`](https://docs.ropensci.org/brapiR2/reference/brapi_references.md),
+  [`brapi_reference_sets()`](https://docs.ropensci.org/brapiR2/reference/brapi_reference_sets.md),
+  [`brapi_allele_matrix()`](https://docs.ropensci.org/brapiR2/reference/brapi_allele_matrix.md),
+  [`brapi_search_variants()`](https://docs.ropensci.org/brapiR2/reference/brapi_search_variants.md),
+  [`brapi_search_calls()`](https://docs.ropensci.org/brapiR2/reference/brapi_search_calls.md).
+- Convenience functions:
+  [`brapi_study_data()`](https://docs.ropensci.org/brapiR2/reference/brapi_study_data.md)
+  (wide-format phenotype table),
+  [`brapi_get_dosage_matrix()`](https://docs.ropensci.org/brapiR2/reference/brapi_get_dosage_matrix.md),
+  [`brapi_get_marker_map()`](https://docs.ropensci.org/brapiR2/reference/brapi_get_marker_map.md).
+- Stateless
+  [`brapi_connection()`](https://docs.ropensci.org/brapiR2/reference/brapi_connection.md)
+  — no global state or side effects.
+- Automatic pagination for all GET endpoints.
+- Async search handling (202 status + polling).
+- Built-in response caching with
+  [`brapi_cache_enable()`](https://docs.ropensci.org/brapiR2/reference/brapi_cache_enable.md).
+- Parallel batch fetching with
+  [`brapi_fetch_parallel()`](https://docs.ropensci.org/brapiR2/reference/brapi_fetch_parallel.md).

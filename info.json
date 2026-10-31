@@ -1,0 +1,13 @@
+{
+  "commit": {
+    "commit": "bfff7e9c0045ebe7a5e657e371d76ce942c48e2c",
+    "author": "Joash Joshua Ayo <joashjoshua789@gmail.com>",
+    "time": "2026-10-31T12:29:39Z",
+    "files": 3,
+    "merge": true,
+    "message": "Merge pull request #73 from josh45-source/test/url-encoding-subdelims\n\nCheck the decoded ID path instead of exact & encoding"
+  },
+  "repo": "https://github.com/ropensci/brapiR2",
+  "pkg": "brapiR2",
+  "time": "2026-10-31T13:53:47Z"
+}
